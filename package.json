@@ -10,6 +10,7 @@
     "./better-sqlite3-ledger": "./src/ledger/better-sqlite3-ledger.ts",
     "./turso-ledger": "./src/ledger/turso-ledger.ts",
     "./runtime/contracts": "./src/runtime/contracts.ts",
+    "./runtime/node-runtime": "./src/runtime/node-runtime.ts",
     "./runtime/virtual-runtime": "./src/runtime/virtual-runtime.ts"
   },
   "files": [
